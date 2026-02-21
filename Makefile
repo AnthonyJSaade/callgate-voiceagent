@@ -1,4 +1,4 @@
-.PHONY: up down logs test migrate seed psql
+.PHONY: up down logs test migrate migrate-cloudsql seed psql
 
 up:
 	docker compose -f infra/docker-compose.yml up --build
@@ -14,6 +14,10 @@ test:
 
 migrate:
 	docker compose -f infra/docker-compose.yml run --rm backend alembic upgrade head
+
+migrate-cloudsql:
+	@test -n "$(DATABASE_URL)" || (echo "ERROR: DATABASE_URL is required. Usage: DATABASE_URL=... make migrate-cloudsql" && exit 1)
+	cd backend && DATABASE_URL="$(DATABASE_URL)" python -m alembic upgrade head
 
 seed:
 	docker compose -f infra/docker-compose.yml run --rm backend python -m scripts.seed_demo_business

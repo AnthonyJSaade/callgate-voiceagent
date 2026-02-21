@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "desired_start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Requested booking start time in ISO 8601 format, e.g. 2026-02-19T18:00:00+00:00."
+    },
+    "party_size": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of guests for the booking."
+    },
+    "flexibility_minutes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Search window around desired_start in minutes. Defaults to 60 if omitted."
+    }
+  },
+  "required": [
+    "desired_start",
+    "party_size"
+  ],
+  "additionalProperties": false
+}

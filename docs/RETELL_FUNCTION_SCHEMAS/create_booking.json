@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "customer_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Customer full name for the booking."
+    },
+    "customer_phone": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Customer phone number used to find or create the customer record."
+    },
+    "start_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Booking start time in ISO 8601 format."
+    },
+    "party_size": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of guests."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional booking notes (special requests, context, etc.)."
+    }
+  },
+  "required": [
+    "customer_name",
+    "customer_phone",
+    "start_time",
+    "party_size"
+  ],
+  "additionalProperties": false
+}

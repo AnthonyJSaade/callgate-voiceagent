@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pytest
+httpx
+sqlalchemy
+alembic
+psycopg[binary]
+retell-sdk

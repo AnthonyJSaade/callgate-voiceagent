@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "properties": {
+    "booking_id": {
+      "type": "integer",
+      "description": "Existing booking id to modify."
+    },
+    "start_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "New booking start time in ISO 8601 format."
+    },
+    "party_size": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Updated guest count."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Updated booking notes."
+    }
+  },
+  "required": [
+    "booking_id"
+  ],
+  "anyOf": [
+    {
+      "required": [
+        "start_time"
+      ]
+    },
+    {
+      "required": [
+        "party_size"
+      ]
+    },
+    {
+      "required": [
+        "notes"
+      ]
+    }
+  ],
+  "additionalProperties": false
+}

@@ -41,16 +41,21 @@ async def _require_retell_signature(
         "human_message": f"Could not verify {purpose} request signature.",
     }
 
-    try:
-        request_body_json = await request.json()
-    except Exception as exc:
-        logger.error("Failed parsing JSON body for %s signature verification.", purpose)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=unauthorized_detail,
-        ) from exc
+    raw_body = await request.body()
+    signature_value = (
+        x_retell_signature
+        or request.headers.get("x-retell-signature")
+        or request.headers.get("X-Retell-Signature")
+    )
 
     api_key, key_source = _resolve_api_key_for_purpose(purpose=purpose)
+    logger.info(
+        "Retell signature verification attempt. purpose=%s signature_present=%s body_length=%s key_source=%s",
+        purpose,
+        bool(signature_value),
+        len(raw_body),
+        key_source,
+    )
     if not api_key:
         if purpose == "webhook":
             logger.error(
@@ -64,8 +69,8 @@ async def _require_retell_signature(
         )
 
     is_valid = verify_retell_signature(
-        request_body_json=request_body_json if isinstance(request_body_json, dict) else {},
-        signature_header=x_retell_signature or "",
+        payload=raw_body,
+        signature_header=signature_value or "",
         api_key=api_key,
     )
     if not is_valid:

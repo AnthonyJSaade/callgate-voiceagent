@@ -11,12 +11,11 @@ from app.db.base import Base
 from app.db import models  # noqa: F401
 
 
-
 config = context.config
-from alembic import context
-
 x_args = context.get_x_argument(as_dictionary=True)
-dburl = x_args.get("dburl")
+dburl = x_args.get("dburl") or os.getenv("DATABASE_URL") or DATABASE_URL
+if dburl and "postgresql+psycopg://" in dburl:
+    dburl = dburl.replace("postgresql+psycopg://", "postgresql+pg8000://", 1)
 if dburl:
     config.set_main_option("sqlalchemy.url", dburl)
 

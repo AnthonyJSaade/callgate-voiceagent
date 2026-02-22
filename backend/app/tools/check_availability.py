@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
+import dateparser
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
@@ -15,13 +18,46 @@ SLOT_INCREMENT_MINUTES = 15
 
 
 class CheckAvailabilityArgs(BaseModel):
-    desired_start: datetime
+    requested_datetime_text: str = Field(min_length=1)
     party_size: int = Field(gt=0)
     flexibility_minutes: int = Field(default=60, ge=0)
+    desired_start_iso: str | None = None
 
 
 def parse_check_availability_args(raw_args: dict[str, Any]) -> CheckAvailabilityArgs:
     return CheckAvailabilityArgs.model_validate(raw_args)
+
+
+def resolve_requested_start_utc(
+    args: CheckAvailabilityArgs,
+    business_timezone: str,
+    call_context: dict[str, Any] | None = None,
+    now_dt: datetime | None = None,
+) -> datetime | None:
+    tzinfo = _safe_zoneinfo(business_timezone)
+    if tzinfo is None:
+        return None
+
+    reference_dt = _resolve_reference_datetime(
+        call_context=call_context or {},
+        business_tz=tzinfo,
+        now_dt=now_dt,
+    )
+    parsed_local = _parse_requested_local_datetime(
+        args=args,
+        business_timezone=business_timezone,
+        reference_dt=reference_dt,
+    )
+    if parsed_local is None:
+        return None
+
+    if (
+        parsed_local.year < (reference_dt.year - 1)
+        and not _contains_explicit_year(args.requested_datetime_text)
+    ):
+        return None
+
+    return parsed_local.astimezone(timezone.utc)
 
 
 def fetch_existing_bookings(
@@ -145,3 +181,95 @@ def map_validation_error(error: ValidationError) -> dict[str, str]:
         "error_code": "INVALID_ARGS",
         "human_message": f"Invalid args: {error.errors()[0]['msg']}",
     }
+
+
+def _parse_requested_local_datetime(
+    args: CheckAvailabilityArgs,
+    business_timezone: str,
+    reference_dt: datetime,
+) -> datetime | None:
+    if args.desired_start_iso:
+        explicit = _parse_datetime_value(args.desired_start_iso)
+        if explicit is not None:
+            return explicit.astimezone(ZoneInfo(business_timezone))
+
+    parsed = dateparser.parse(
+        args.requested_datetime_text,
+        settings={
+            "RETURN_AS_TIMEZONE_AWARE": True,
+            "TIMEZONE": business_timezone,
+            "TO_TIMEZONE": business_timezone,
+            "RELATIVE_BASE": reference_dt,
+        },
+    )
+    if parsed is None:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=ZoneInfo(business_timezone))
+    return parsed.astimezone(ZoneInfo(business_timezone))
+
+
+def _resolve_reference_datetime(
+    call_context: dict[str, Any],
+    business_tz: ZoneInfo,
+    now_dt: datetime | None = None,
+) -> datetime:
+    for key in (
+        "start_timestamp",
+        "start_time",
+        "started_at",
+        "call_start_time",
+        "created_at",
+    ):
+        parsed = _parse_datetime_value(call_context.get(key))
+        if parsed is not None:
+            return parsed.astimezone(business_tz)
+
+    metadata = call_context.get("metadata")
+    if isinstance(metadata, dict):
+        for key in ("start_timestamp", "started_at", "call_start_time", "created_at"):
+            parsed = _parse_datetime_value(metadata.get(key))
+            if parsed is not None:
+                return parsed.astimezone(business_tz)
+
+    fallback_now = now_dt or datetime.now(timezone.utc)
+    if fallback_now.tzinfo is None:
+        fallback_now = fallback_now.replace(tzinfo=timezone.utc)
+    return fallback_now.astimezone(business_tz)
+
+
+def _parse_datetime_value(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed
+    return None
+
+
+def _safe_zoneinfo(name: str) -> ZoneInfo | None:
+    try:
+        return ZoneInfo(name)
+    except Exception:
+        return None
+
+
+def _contains_explicit_year(text: str) -> bool:
+    return bool(re.search(r"\b(19|20)\d{2}\b", text))

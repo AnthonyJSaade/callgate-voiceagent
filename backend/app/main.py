@@ -43,6 +43,7 @@ from app.tools.check_availability import (
     find_best_available_start_times,
     map_validation_error,
     parse_check_availability_args,
+    resolve_requested_start_utc,
 )
 from app.tools.create_booking import create_booking_with_idempotency, parse_create_booking_args
 from app.tools.find_booking import find_booking_candidates, parse_find_booking_args
@@ -344,6 +345,23 @@ async def check_availability_tool(payload: dict[str, Any]) -> JSONResponse:
             }
         )
 
+    desired_start_utc = resolve_requested_start_utc(
+        args=args,
+        business_timezone=business.timezone,
+        call_context=request_wrapper.call,
+    )
+    if desired_start_utc is None:
+        return JSONResponse(
+            content={
+                "ok": False,
+                "error_code": "CLARIFICATION_REQUIRED",
+                "human_message": (
+                    "I couldn't understand the requested date and time. "
+                    "Please say a clear day and time, for example 'tomorrow at 7 PM'."
+                ),
+            }
+        )
+
     policies = business.policies_json or {}
     try:
         booking_duration_minutes = int(
@@ -364,8 +382,8 @@ async def check_availability_tool(payload: dict[str, Any]) -> JSONResponse:
             }
         )
 
-    search_start = args.desired_start - timedelta(minutes=args.flexibility_minutes)
-    search_end = args.desired_start + timedelta(minutes=args.flexibility_minutes)
+    search_start = desired_start_utc - timedelta(minutes=args.flexibility_minutes)
+    search_end = desired_start_utc + timedelta(minutes=args.flexibility_minutes)
 
     db = SessionLocal()
     try:
@@ -380,7 +398,7 @@ async def check_availability_tool(payload: dict[str, Any]) -> JSONResponse:
         db.close()
 
     available_slots = find_best_available_start_times(
-        desired_start=args.desired_start,
+        desired_start=desired_start_utc,
         flexibility_minutes=args.flexibility_minutes,
         party_size=args.party_size,
         booking_duration_minutes=booking_duration_minutes,

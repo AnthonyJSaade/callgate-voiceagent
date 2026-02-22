@@ -44,9 +44,10 @@ Behavior by environment:
 {
   "name": "check_availability",
   "args": {
-    "desired_start": "2026-02-19T18:00:00+00:00",
+    "requested_datetime_text": "tomorrow at 7pm",
     "party_size": 2,
-    "flexibility_minutes": 60
+    "flexibility_minutes": 60,
+    "desired_start_iso": "2026-02-19T18:00:00-05:00"
   },
   "call": {
     "metadata": {
@@ -58,6 +59,10 @@ Behavior by environment:
 - Business resolution:
   - Read `call.metadata.internal_customer_id`
   - Resolve `businesses.external_id = internal_customer_id`
+- Datetime resolution:
+  - backend parses `requested_datetime_text` deterministically in `business.timezone`
+  - backend uses call-context start timestamp when present; otherwise current time in business timezone
+  - `desired_start_iso` is optional and used only when caller has an explicit calendar date
 - Success response: `200`
 - Response envelope:
 ```json

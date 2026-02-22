@@ -1,10 +1,16 @@
 {
   "type": "object",
+  "description": "Check reservation availability. Do NOT convert relative dates into calendar dates. Always pass the user's spoken phrase in requested_datetime_text.",
   "properties": {
-    "desired_start": {
+    "requested_datetime_text": {
+      "type": "string",
+      "minLength": 1,
+      "description": "User phrase for date/time exactly as spoken, e.g. 'tomorrow at 7pm' or 'this Thursday at 6:30'."
+    },
+    "desired_start_iso": {
       "type": "string",
       "format": "date-time",
-      "description": "Requested booking start time in ISO 8601 format, e.g. 2026-02-19T18:00:00+00:00."
+      "description": "Optional ISO datetime only when user explicitly provided a calendar date."
     },
     "party_size": {
       "type": "integer",
@@ -18,7 +24,7 @@
     }
   },
   "required": [
-    "desired_start",
+    "requested_datetime_text",
     "party_size"
   ],
   "additionalProperties": false

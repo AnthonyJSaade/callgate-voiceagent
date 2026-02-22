@@ -4,5 +4,5 @@ pytest
 httpx
 sqlalchemy
 alembic
-psycopg[binary]
+pg8000
 retell-sdk

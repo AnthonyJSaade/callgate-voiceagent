@@ -11,15 +11,15 @@ from app.db.base import Base
 from app.db import models  # noqa: F401
 
 
-config = context.config
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
 
-db_url = os.getenv("DATABASE_URL")
-if db_url:
-    config.set_main_option("sqlalchemy.url", db_url)
-else:
-    config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config = context.config
+from alembic import context
+
+x_args = context.get_x_argument(as_dictionary=True)
+dburl = x_args.get("dburl")
+if dburl:
+    config.set_main_option("sqlalchemy.url", dburl)
+
 target_metadata = Base.metadata
 
 

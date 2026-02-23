@@ -18,7 +18,7 @@ services:
     container_name: voiceagent-backend
     restart: unless-stopped
     env_file:
-      - ./.env.example
+      - ./.env
     environment:
       DATABASE_URL: postgresql+pg8000://postgres:postgres@postgres:5432/voiceagent
       ENV: development

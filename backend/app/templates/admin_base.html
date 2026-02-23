@@ -11,6 +11,7 @@
     .nav { margin-bottom: 1rem; }
     .card { border: 1px solid #d1d5db; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
     .error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; }
+    .success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; }
     .grid { display: grid; gap: 0.75rem; max-width: 560px; }
     label { font-size: 0.9rem; display: block; }
     input { width: 100%; padding: 0.5rem; margin-top: 0.2rem; }
@@ -29,6 +30,9 @@
   </div>
   {% if error %}
     <div class="error">{{ error }}</div>
+  {% endif %}
+  {% if success %}
+    <div class="success">{{ success }}</div>
   {% endif %}
   {% block content %}{% endblock %}
 </body>

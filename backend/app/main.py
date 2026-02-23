@@ -4,6 +4,7 @@ import logging
 import time
 import uuid
 from pathlib import Path
+from urllib.parse import quote_plus
 from typing import Any
 from datetime import timedelta
 
@@ -172,6 +173,7 @@ async def admin_ui_businesses(request: Request) -> HTMLResponse:
                 "request": request,
                 "businesses": businesses,
                 "error": request.query_params.get("error"),
+                "success": request.query_params.get("success"),
             },
         )
     finally:
@@ -185,6 +187,7 @@ async def admin_ui_business_new_form(request: Request) -> HTMLResponse:
         {
             "request": request,
             "error": request.query_params.get("error"),
+            "success": request.query_params.get("success"),
         },
     )
 
@@ -254,6 +257,7 @@ async def admin_ui_business_detail(request: Request, business_id: int) -> HTMLRe
                 "business": business,
                 "bookings": bookings[:10],
                 "error": request.query_params.get("error"),
+                "success": request.query_params.get("success"),
             },
         )
     finally:
@@ -264,8 +268,14 @@ async def admin_ui_business_detail(request: Request, business_id: int) -> HTMLRe
 async def admin_ui_business_google_connect(business_id: int) -> Response:
     connect_response = await admin_google_connect(business_id=business_id)
     if connect_response.status_code != 200:
+        human_message = "Failed to build Google OAuth URL"
+        try:
+            payload = json.loads(connect_response.body.decode("utf-8"))
+            human_message = payload.get("human_message") or payload.get("detail", {}).get("human_message") or human_message
+        except Exception:
+            pass
         return RedirectResponse(
-            url=f"/admin/ui/businesses/{business_id}?error=Failed+to+build+Google+OAuth+URL",
+            url=f"/admin/ui/businesses/{business_id}?error={quote_plus(human_message)}",
             status_code=302,
         )
     try:
@@ -398,7 +408,11 @@ async def admin_google_connect(business_id: int) -> JSONResponse:
 
 
 @app.get("/v1/integrations/google/oauth/callback")
-async def google_oauth_callback(code: str | None = None, state: str | None = None) -> Response:
+async def google_oauth_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+) -> Response:
     if not code or not state:
         return JSONResponse(
             status_code=400,
@@ -485,6 +499,11 @@ async def google_oauth_callback(code: str | None = None, state: str | None = Non
     finally:
         db.close()
 
+    if request.cookies.get("admin_key"):
+        return RedirectResponse(
+            url=f"/admin/ui/businesses/{business_id}?success=Google+Calendar+connected",
+            status_code=302,
+        )
     return HTMLResponse("<html><body>Google Calendar connected. You can close this tab.</body></html>")
 
 

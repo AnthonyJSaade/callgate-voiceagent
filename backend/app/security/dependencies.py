@@ -111,7 +111,7 @@ async def require_retell_webhook_signature(
 def require_admin_api_key(
     x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
 ) -> None:
-    _validate_admin_api_key_value(x_admin_key)
+    _validate_admin_api_key_value(x_admin_key, allow_dev_bypass=True)
 
 
 def require_admin_ui_auth(
@@ -119,16 +119,22 @@ def require_admin_ui_auth(
     x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key"),
     x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
 ) -> None:
-    _validate_admin_api_key_value(admin_key or x_admin_api_key or x_admin_key)
+    _validate_admin_api_key_value(
+        admin_key or x_admin_api_key or x_admin_key,
+        allow_dev_bypass=False,
+    )
 
 
-def _validate_admin_api_key_value(provided_key: str | None) -> None:
+def _validate_admin_api_key_value(
+    provided_key: str | None,
+    allow_dev_bypass: bool,
+) -> None:
     env = os.getenv("ENV", "dev").lower()
     is_dev = env in {"dev", "development", "local"}
     configured_key = os.getenv("ADMIN_API_KEY", "")
 
     if not configured_key:
-        if is_dev:
+        if is_dev and allow_dev_bypass:
             logger.warning(
                 "ADMIN_API_KEY is not set in dev; allowing admin request without key."
             )

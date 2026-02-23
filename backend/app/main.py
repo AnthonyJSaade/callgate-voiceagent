@@ -123,24 +123,22 @@ async def admin_ui_login_page(request: Request) -> HTMLResponse:
 
 @app.post("/admin/ui/login")
 async def admin_ui_login_submit(request: Request, admin_key: str = Form(default="")) -> Response:
-    env = os.getenv("ENV", "dev").lower()
-    is_dev = env in {"dev", "development", "local"}
     configured_key = os.getenv("ADMIN_API_KEY", "")
+    if not configured_key:
+        return templates.TemplateResponse(
+            "admin_login.html",
+            {
+                "request": request,
+                "error": "Admin UI is disabled until ADMIN_API_KEY is configured.",
+            },
+            status_code=401,
+        )
     if configured_key and admin_key != configured_key:
         return templates.TemplateResponse(
             "admin_login.html",
             {
                 "request": request,
                 "error": "Invalid admin API key.",
-            },
-            status_code=401,
-        )
-    if not configured_key and not is_dev:
-        return templates.TemplateResponse(
-            "admin_login.html",
-            {
-                "request": request,
-                "error": "Admin API key is not configured.",
             },
             status_code=401,
         )

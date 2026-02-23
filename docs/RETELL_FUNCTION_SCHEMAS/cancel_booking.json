@@ -1,13 +1,37 @@
 {
   "type": "object",
+  "description": "Find an existing reservation before modify/cancel. Always collect and pass BOTH customer_name and customer_phone exactly as spoken.",
   "properties": {
-    "booking_id": {
+    "customer_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Customer full name used to narrow phone matches."
+    },
+    "customer_phone": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Customer phone number used for primary booking lookup."
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Optional booking date filter (YYYY-MM-DD) if user provides a date."
+    },
+    "time": {
+      "type": "string",
+      "pattern": "^\\d{2}:\\d{2}$",
+      "description": "Optional booking time filter (HH:MM, 24-hour) if user provides time."
+    },
+    "lookahead_days": {
       "type": "integer",
-      "description": "Existing booking id to cancel."
+      "minimum": 1,
+      "maximum": 365,
+      "description": "Optional future search window in days (default 30)."
     }
   },
   "required": [
-    "booking_id"
+    "customer_name",
+    "customer_phone"
   ],
   "additionalProperties": false
 }

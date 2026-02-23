@@ -1,44 +1,33 @@
 {
   "type": "object",
+  "description": "Modify an existing reservation by booking_id (must come from find_booking). For date/time changes, set start_time to the new ISO datetime. For party-size-only changes, set party_size.",
   "properties": {
     "booking_id": {
       "type": "integer",
-      "description": "Existing booking id to modify."
+      "description": "Booking ID returned by find_booking."
     },
     "start_time": {
       "type": "string",
       "format": "date-time",
-      "description": "New booking start time in ISO 8601 format."
+      "description": "New reservation date/time in ISO 8601 format when customer changes date/time."
     },
     "party_size": {
       "type": "integer",
       "minimum": 1,
-      "description": "Updated guest count."
+      "description": "New party size when customer changes guest count."
     },
     "notes": {
       "type": "string",
-      "description": "Updated booking notes."
+      "description": "Optional note updates."
     }
   },
   "required": [
     "booking_id"
   ],
   "anyOf": [
-    {
-      "required": [
-        "start_time"
-      ]
-    },
-    {
-      "required": [
-        "party_size"
-      ]
-    },
-    {
-      "required": [
-        "notes"
-      ]
-    }
+    { "required": ["start_time"] },
+    { "required": ["party_size"] },
+    { "required": ["notes"] }
   ],
   "additionalProperties": false
 }

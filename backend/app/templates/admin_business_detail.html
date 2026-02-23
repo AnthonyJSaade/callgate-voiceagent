@@ -1,0 +1,50 @@
+{% extends "admin_base.html" %}
+{% block title %}Business Detail{% endblock %}
+{% block content %}
+  {% if business %}
+  <div class="card">
+    <h2>{{ business.name }}</h2>
+    <p><strong>ID:</strong> {{ business.id }}</p>
+    <p><strong>External ID:</strong> {{ business.external_id }}</p>
+    <p><strong>Timezone:</strong> {{ business.timezone }}</p>
+    <p><strong>Phone:</strong> {{ business.phone or "-" }}</p>
+    <p><strong>Transfer Phone:</strong> {{ business.transfer_phone or "-" }}</p>
+    <p><strong>Calendar Provider:</strong> {{ business.calendar_provider or "-" }}</p>
+    <p><strong>Calendar OAuth Status:</strong> {{ business.calendar_oauth_status or "-" }}</p>
+    <form method="post" action="/admin/ui/businesses/{{ business.id }}/google/connect">
+      <button type="submit">Connect Google Calendar</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Last 10 Bookings</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Start</th>
+          <th>Party</th>
+          <th>Status</th>
+          <th>External Provider</th>
+          <th>External Event ID</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for booking in bookings %}
+        <tr>
+          <td>{{ booking.id }}</td>
+          <td>{{ booking.start_time }}</td>
+          <td>{{ booking.party_size }}</td>
+          <td>{{ booking.status }}</td>
+          <td>{{ booking.external_event_provider or "-" }}</td>
+          <td>{{ booking.external_event_id or "-" }}</td>
+        </tr>
+      {% endfor %}
+      {% if bookings|length == 0 %}
+        <tr><td colspan="6">No bookings found.</td></tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+{% endblock %}

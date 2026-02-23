@@ -1,0 +1,27 @@
+{% extends "admin_base.html" %}
+{% block title %}Businesses{% endblock %}
+{% block content %}
+  <div class="card">
+    <h2>Businesses</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Timezone</th>
+          <th>Calendar Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for business in businesses %}
+        <tr>
+          <td><a href="/admin/ui/businesses/{{ business.id }}">{{ business.name }}</a></td>
+          <td>{{ business.phone or "-" }}</td>
+          <td>{{ business.timezone }}</td>
+          <td>{{ business.calendar_oauth_status or "not_connected" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

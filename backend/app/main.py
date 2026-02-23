@@ -3,11 +3,13 @@ import json
 import logging
 import time
 import uuid
+from pathlib import Path
 from typing import Any
 from datetime import timedelta
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
 from app.admin.businesses import (
@@ -18,6 +20,7 @@ from app.admin.businesses import (
     serialize_business,
     update_business,
 )
+from app.db.models import Booking, Business
 from app.db.session import SessionLocal
 from app.integrations.google_oauth import (
     build_google_auth_url,
@@ -33,6 +36,7 @@ from app.retell.request_parser import (
 )
 from app.security.dependencies import (
     require_admin_api_key,
+    require_admin_ui_auth,
     require_retell_tool_signature,
     require_retell_webhook_signature,
 )
@@ -68,6 +72,7 @@ def configure_logging() -> logging.Logger:
 
 logger = configure_logging()
 app = FastAPI(title="VoiceAgent Backend")
+templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
 
 @app.middleware("http")
@@ -98,6 +103,184 @@ async def request_id_middleware(request: Request, call_next):
 @app.get("/health")
 async def health():
     return JSONResponse(content={"ok": True})
+
+
+@app.get("/admin/ui")
+async def admin_ui_root() -> Response:
+    return RedirectResponse(url="/admin/ui/businesses", status_code=302)
+
+
+@app.get("/admin/ui/login")
+async def admin_ui_login_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        "admin_login.html",
+        {
+            "request": request,
+            "error": request.query_params.get("error"),
+        },
+    )
+
+
+@app.post("/admin/ui/login")
+async def admin_ui_login_submit(request: Request, admin_key: str = Form(default="")) -> Response:
+    env = os.getenv("ENV", "dev").lower()
+    is_dev = env in {"dev", "development", "local"}
+    configured_key = os.getenv("ADMIN_API_KEY", "")
+    if configured_key and admin_key != configured_key:
+        return templates.TemplateResponse(
+            "admin_login.html",
+            {
+                "request": request,
+                "error": "Invalid admin API key.",
+            },
+            status_code=401,
+        )
+    if not configured_key and not is_dev:
+        return templates.TemplateResponse(
+            "admin_login.html",
+            {
+                "request": request,
+                "error": "Admin API key is not configured.",
+            },
+            status_code=401,
+        )
+
+    response = RedirectResponse(url="/admin/ui/businesses", status_code=302)
+    response.set_cookie(
+        key="admin_key",
+        value=admin_key,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+    )
+    return response
+
+
+@app.post("/admin/ui/logout")
+async def admin_ui_logout() -> Response:
+    response = RedirectResponse(url="/admin/ui/login", status_code=302)
+    response.delete_cookie(key="admin_key")
+    return response
+
+
+@app.get("/admin/ui/businesses", dependencies=[Depends(require_admin_ui_auth)])
+async def admin_ui_businesses(request: Request) -> HTMLResponse:
+    db = SessionLocal()
+    try:
+        businesses = list_businesses(db=db)
+        return templates.TemplateResponse(
+            "admin_businesses.html",
+            {
+                "request": request,
+                "businesses": businesses,
+                "error": request.query_params.get("error"),
+            },
+        )
+    finally:
+        db.close()
+
+
+@app.get("/admin/ui/businesses/new", dependencies=[Depends(require_admin_ui_auth)])
+async def admin_ui_business_new_form(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        "admin_business_new.html",
+        {
+            "request": request,
+            "error": request.query_params.get("error"),
+        },
+    )
+
+
+@app.post("/admin/ui/businesses/new", dependencies=[Depends(require_admin_ui_auth)])
+async def admin_ui_business_new_submit(
+    request: Request,
+    name: str = Form(...),
+    external_id: str = Form(...),
+    timezone: str = Form(default="America/New_York"),
+    phone: str = Form(default=""),
+    transfer_phone: str = Form(default=""),
+) -> Response:
+    db = SessionLocal()
+    try:
+        args = CreateBusinessArgs(
+            name=name,
+            external_id=external_id,
+            timezone=timezone or "America/New_York",
+            phone=phone or None,
+            transfer_phone=transfer_phone or None,
+            calendar_provider="google",
+        )
+        business = create_business(db=db, args=args)
+        return RedirectResponse(url=f"/admin/ui/businesses/{business.id}", status_code=302)
+    except Exception as exc:
+        return templates.TemplateResponse(
+            "admin_business_new.html",
+            {
+                "request": request,
+                "error": str(exc),
+            },
+            status_code=400,
+        )
+    finally:
+        db.close()
+
+
+@app.get("/admin/ui/businesses/{business_id}", dependencies=[Depends(require_admin_ui_auth)])
+async def admin_ui_business_detail(request: Request, business_id: int) -> HTMLResponse:
+    db = SessionLocal()
+    try:
+        business = next((b for b in db.query(Business).all() if b.id == business_id), None)
+        if business is None:
+            return templates.TemplateResponse(
+                "admin_business_detail.html",
+                {
+                    "request": request,
+                    "business": None,
+                    "bookings": [],
+                    "error": "Business not found.",
+                },
+                status_code=404,
+            )
+
+        bookings = [
+            booking
+            for booking in db.query(Booking).all()
+            if booking.business_id == business_id
+        ]
+        bookings.sort(key=lambda row: row.start_time, reverse=True)
+
+        return templates.TemplateResponse(
+            "admin_business_detail.html",
+            {
+                "request": request,
+                "business": business,
+                "bookings": bookings[:10],
+                "error": request.query_params.get("error"),
+            },
+        )
+    finally:
+        db.close()
+
+
+@app.post("/admin/ui/businesses/{business_id}/google/connect", dependencies=[Depends(require_admin_ui_auth)])
+async def admin_ui_business_google_connect(business_id: int) -> Response:
+    connect_response = await admin_google_connect(business_id=business_id)
+    if connect_response.status_code != 200:
+        return RedirectResponse(
+            url=f"/admin/ui/businesses/{business_id}?error=Failed+to+build+Google+OAuth+URL",
+            status_code=302,
+        )
+    try:
+        payload = json.loads(connect_response.body.decode("utf-8"))
+        auth_url = payload.get("data", {}).get("auth_url")
+    except Exception:
+        auth_url = None
+    if not auth_url:
+        return RedirectResponse(
+            url=f"/admin/ui/businesses/{business_id}?error=Missing+Google+OAuth+URL",
+            status_code=302,
+        )
+    return RedirectResponse(url=auth_url, status_code=302)
 
 
 @app.post("/v1/admin/businesses", dependencies=[Depends(require_admin_api_key)])

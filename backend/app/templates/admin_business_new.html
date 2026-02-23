@@ -1,0 +1,15 @@
+{% extends "admin_base.html" %}
+{% block title %}Create Business{% endblock %}
+{% block content %}
+  <div class="card">
+    <h2>Create Business</h2>
+    <form method="post" action="/admin/ui/businesses/new" class="grid">
+      <label>Name <input type="text" name="name" required></label>
+      <label>External ID <input type="text" name="external_id" required></label>
+      <label>Timezone <input type="text" name="timezone" value="America/New_York"></label>
+      <label>Phone <input type="text" name="phone"></label>
+      <label>Transfer Phone <input type="text" name="transfer_phone"></label>
+      <div><button type="submit">Create</button></div>
+    </form>
+  </div>
+{% endblock %}

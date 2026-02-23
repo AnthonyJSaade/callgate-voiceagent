@@ -1,7 +1,7 @@
 import logging
 import os
 
-from fastapi import Header, HTTPException, Request, status
+from fastapi import Cookie, Header, HTTPException, Request, status
 
 from app.security.retell_verify import verify_retell_signature
 
@@ -111,6 +111,18 @@ async def require_retell_webhook_signature(
 def require_admin_api_key(
     x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
 ) -> None:
+    _validate_admin_api_key_value(x_admin_key)
+
+
+def require_admin_ui_auth(
+    admin_key: str | None = Cookie(default=None, alias="admin_key"),
+    x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key"),
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+) -> None:
+    _validate_admin_api_key_value(admin_key or x_admin_api_key or x_admin_key)
+
+
+def _validate_admin_api_key_value(provided_key: str | None) -> None:
     env = os.getenv("ENV", "dev").lower()
     is_dev = env in {"dev", "development", "local"}
     configured_key = os.getenv("ADMIN_API_KEY", "")
@@ -129,7 +141,7 @@ def require_admin_api_key(
             },
         )
 
-    if x_admin_key != configured_key:
+    if provided_key != configured_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={

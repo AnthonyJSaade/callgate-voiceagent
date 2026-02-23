@@ -8,3 +8,4 @@ alembic
 pg8000
 retell-sdk
 dateparser
+python-multipart
